@@ -6,10 +6,23 @@ import fpinscala.testing._
 import fpinscala.testing.Prop._
 
 trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trait
+  def char(c: Char): Parser[Char]
+  def run[A](p: Parser[A])(input: String): Either[ParseError,A]
+  def or[A](s1: Parser[A], s2: Parser[A]): Parser[A]
+  implicit def string(s: String): Parser[String] // implicit conversion from string to Parser[String]
+  implicit def operators[A](p: Parser[A]) = ParserOps[A](p) // implicit conversion to enable infix ParserOps[A]
+  implicit def asStringParser[A](a: A)(implicit f: A => Parser[String]): ParserOps[String] = ParserOps(f(a))
+
+  def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]]
+
+  def many[A](p: Parser[A]): Parser[List[A]]
+  def map[A,B](p: Parser[A])(f: A => B): Parser[B]
 
   case class ParserOps[A](p: Parser[A]) {
-
-
+    def |[B>:A](p2: Parser[B]): Parser[B] = self.or(p,p2)
+    def or[B>:A](p2: => Parser[B]): Parser[B] = self.or(p,p2)
+    def many: Parser[List[A]] = self.many(p)
+    def map[B](f: A => B): Parser[B] = self.map(p)(f)
   }
 
   object Laws {
