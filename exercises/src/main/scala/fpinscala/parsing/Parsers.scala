@@ -6,7 +6,6 @@ import fpinscala.testing._
 import fpinscala.testing.Prop._
 
 trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trait
-  def char(c: Char): Parser[Char]
   def run[A](p: Parser[A])(input: String): Either[ParseError,A]
   def or[A](s1: Parser[A], s2: Parser[A]): Parser[A]
   implicit def string(s: String): Parser[String] // implicit conversion from string to Parser[String]
@@ -17,6 +16,13 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
 
   def many[A](p: Parser[A]): Parser[List[A]]
   def map[A,B](p: Parser[A])(f: A => B): Parser[B]
+
+  // parses a single character
+  def char(c: Char): Parser[Char] = string(c.toString) map (_.charAt(0))
+
+  // unit, lifts a value A into a Parser[A]
+  def succeed[A](a: A): Parser[A] = string("") map (_ => a)
+
 
   case class ParserOps[A](p: Parser[A]) {
     def |[B>:A](p2: Parser[B]): Parser[B] = self.or(p,p2)
@@ -31,6 +37,12 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
 
     def mapLaw[A](p: Parser[A])(in: Gen[String]): Prop =
       equal(p, p.map(a => a))(in)
+
+    //// TODO: need map2 in testing.Gen first
+    //def succeedLaw[A](as: Gen[String], ss: Gen[String]): Prop =
+    //  forAll(as.map2(ss)((a,s) => (a,s))) { (a,s) =>
+    //      self.run(succeed(a))(s) == Right(a)
+    //  }
   }
 }
 
