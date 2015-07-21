@@ -16,29 +16,40 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
    */
   implicit def string(s: String): Parser[String] // implicit conversion from string to Parser[String]
 
+  def flatMap[A,B](p: Parser[A])(f: A => Parser[B]): Parser[B]
+
   def slice[A](p: Parser[A]): Parser[String]
 
   // unit, lifts a value A into a Parser[A]
   def succeed[A](a: A): Parser[A] = string("") map (_ => a)
 
-  def map[A,B](p: Parser[A])(f: A => B): Parser[B]
-
-  def product[A,B](p1: Parser[A], p2: => Parser[B]): Parser[(A,B)]
+  def map[A,B](p: Parser[A])(f: A => B): Parser[B] = flatMap(p)(a => succeed(f(a)))
 
   // Left biased: evaluates s1 before s2 (no longer associative!)
   def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A]
 
-  def flatMap[A,B](p: Parser[A])(f: A => Parser[B]): Parser[B]
 
   /*
    Derived Combinators
    */
+  //def product[A,B](p1: Parser[A], p2: => Parser[B]): Parser[(A,B)] =
+  //  p1.flatMap(a => p2.flatMap(b => succeed((a,b))))
+  def product[A,B](p1: Parser[A], p2: => Parser[B]): Parser[(A,B)] = for {
+    a <- p1;
+    b <- p2
+  } yield (a,b)
 
   // Non strictness:
   // 1. If the first parser fails, the second won't even be run!
   // 2. Recursive arguments (e.g. map2(p, many(p))) won't infinite loop
-  def map2[A,B,C](p1: Parser[A], p2: => Parser[B])(f: (A,B) => C): Parser[C] =
-    (p1 ** p2) map(f.tupled)
+  //def map2[A,B,C](p1: Parser[A], p2: => Parser[B])(f: (A,B) => C): Parser[C] =
+  //  (p1 ** p2) map(f.tupled)
+  //def map2[A,B,C](p1: Parser[A], p2: => Parser[B])(f: (A,B) => C): Parser[C] =
+  //  (p1 ** p2).flatMap { case (a,b) => succeed(f(a,b)) }
+  def map2[A,B,C](p1: Parser[A], p2: => Parser[B])(f: (A,B) => C): Parser[C] = for {
+    a <- p1; // delegate to `flatMap` and `map` in `ParserOps`
+    b <- p2
+  } yield f(a,b)
 
   def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] =
     if (n == 0) succeed(List[A]())
