@@ -14,16 +14,16 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
 
   def or[A](s1: Parser[A], s2: Parser[A]): Parser[A]
   def map[A,B](p: Parser[A])(f: A => B): Parser[B]
-  def map2[A,B,C](p1: Parser[A], p2: Parser[B])(f: (A,B) => C): Parser[C] =
-    p1 product(p2) map(f.tupled)
-  def product[A,B](p1: Parser[A], p2: Parser[B]): Parser[(A,B)]
+  def product[A,B](p1: Parser[A], p2: => Parser[B]): Parser[(A,B)]
+  def map2[A,B,C](p1: Parser[A], p2: => Parser[B])(f: (A,B) => C): Parser[C] =
+    (p1 ** p2) map(f.tupled)
   def slice[A](p: Parser[A]): Parser[String]
 
   def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] =
     if (n == 0) succeed(List[A]())
     else map2(p, listOfN(n-1,p))(_ :: _)
   def many[A](p: Parser[A]): Parser[List[A]] =
-    succeed(List[A]()) | map2(p, many(p))(_ :: _)
+    map2(p, many(p))(_ :: _) | succeed(List[A]())
   def many1[A](p: Parser[A]): Parser[List[A]] =
     map2(p, many(p))(_ :: _)
 
