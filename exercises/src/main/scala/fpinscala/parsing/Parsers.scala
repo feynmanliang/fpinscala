@@ -34,6 +34,9 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
   // for nesting labels
   def scope[A](msg: String)(p: Parser[A]): Parser[A]
 
+  // delays committing to a parse
+  def attempt[A](p: Parser[A]): Parser[A]
+
   /*
    Derived Combinators
    */
