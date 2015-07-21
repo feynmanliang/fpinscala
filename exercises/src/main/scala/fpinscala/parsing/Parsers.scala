@@ -8,16 +8,33 @@ import fpinscala.testing.Prop._
 trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trait
   def run[A](p: Parser[A])(input: String): Either[ParseError,A]
 
+  /*
+   Primitive Combinators
+   */
   implicit def string(s: String): Parser[String] // implicit conversion from string to Parser[String]
-  implicit def operators[A](p: Parser[A]) = ParserOps[A](p) // implicit conversion to enable infix ParserOps[A]
   implicit def asStringParser[A](a: A)(implicit f: A => Parser[String]): ParserOps[String] = ParserOps(f(a))
 
-  def or[A](s1: Parser[A], s2: Parser[A]): Parser[A]
+  def slice[A](p: Parser[A]): Parser[String]
+
+  // unit, lifts a value A into a Parser[A]
+  def succeed[A](a: A): Parser[A] = string("") map (_ => a)
+
   def map[A,B](p: Parser[A])(f: A => B): Parser[B]
+
   def product[A,B](p1: Parser[A], p2: => Parser[B]): Parser[(A,B)]
+
+  // Left biased: evaluates s1 before s2 (no longer associative!)
+  def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A]
+
+  /*
+   Derived Combinators
+   */
+
+  // Non strictness:
+  // 1. If the first parser fails, the second won't even be run!
+  // 2. Recursive arguments (e.g. map2(p, many(p))) won't infinite loop
   def map2[A,B,C](p1: Parser[A], p2: => Parser[B])(f: (A,B) => C): Parser[C] =
     (p1 ** p2) map(f.tupled)
-  def slice[A](p: Parser[A]): Parser[String]
 
   def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] =
     if (n == 0) succeed(List[A]())
@@ -30,10 +47,7 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
   // parses a single character
   def char(c: Char): Parser[Char] = string(c.toString) map (_.charAt(0))
 
-  // unit, lifts a value A into a Parser[A]
-  def succeed[A](a: A): Parser[A] = string("") map (_ => a)
-
-
+  implicit def operators[A](p: Parser[A]) = ParserOps[A](p) // implicit conversion to enable infix ParserOps[A]
   case class ParserOps[A](p: Parser[A]) {
     def |[B>:A](p2: Parser[B]): Parser[B] = self.or(p,p2)
     def or[B>:A](p2: => Parser[B]): Parser[B] = self.or(p,p2)
