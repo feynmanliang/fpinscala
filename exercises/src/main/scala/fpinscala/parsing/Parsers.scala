@@ -86,11 +86,11 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
   //def ex8: Parser[List[String]] = "[0-9]".r flatMap { n =>
   //  listOfN(n.toInt, string("a")) map (n :: _)
   //}
-  def ex8: Parser[List[String]] = for {
+  def ex8: Parser[Int] = for {
     digit <- "[0-9]".r // rewritten to flatMap in for comprehension
     val n = digit.toInt
-    _ <- listOfN(n.toInt, char("a"))
-  } yield n
+    _ <- listOfN(n.toInt, char('a'))
+  } yield n // return number of characters parsed
 
 }
 
