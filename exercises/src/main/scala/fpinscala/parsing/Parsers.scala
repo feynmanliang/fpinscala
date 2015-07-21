@@ -28,6 +28,11 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
   // Left biased: evaluates s1 before s2 (no longer associative!)
   def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A]
 
+  // Introduce a label to be returned during a ParseError
+  def label[A](msg: String)(p: Parser[A]): Parser[A]
+
+  // for nesting labels
+  def scope[A](msg: String)(p: Parser[A]): Parser[A]
 
   /*
    Derived Combinators
@@ -81,7 +86,7 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
 
     //// TODO: need map2 in testing.Gen first
     //def succeedLaw[A](as: Gen[String], ss: Gen[String]): Prop =
-    //  forAll(as.map2(ss)((a,s) => (a,s))) { (a,s) =>
+    //  forAll(as ** ss) { (a,s) =>
     //      self.run(succeed(a))(s) == Right(a)
     //  }
 
@@ -89,6 +94,15 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
     // given f: (A,B) => A, g: (A,B) => B, we should have
     // (parser[A] ** parser[B]) map(f) == parser[A] map(f)
     // (parser[A] ** parser[B]) map(g) == parser[B] map(g)
+
+    //// TODO: need product (**) in testing.Gen
+    //def labelLaw[A](p: Parser[A], inputs: SGen[String]): Prop =
+    //  forAll(inputs ** Gen.string) { case (input, msg) =>
+    //    run(label(msg)(p))(input) match {
+    //      case Left(e) => errorMessage(e) == msg
+    //      case _ => true
+    //    }
+    //  }
   }
 
 
