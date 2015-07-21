@@ -126,6 +126,9 @@ object MyParser extends Parsers[Parser] {
       case f@Failure(_,_) => f
     }
 
+  def furthest[A](p: Parser[A]): Parser[A] =
+    s => p(s).mapError(_.furthest)
+
   /* We provide an overridden version of `many` that accumulates
    * the list of results using a monolithic loop. This avoids
    * stack overflow errors for most grammars.

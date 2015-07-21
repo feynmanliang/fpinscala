@@ -87,8 +87,7 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
   def thru(s: String): Parser[String] = (".*?"+Pattern.quote(s)).r
 
   /** Unescaped string literals, like "foo" or "bar". */
-  //def quoted: Parser[String] = string("\"") *> thru("\"").map(_.dropRight(1))
-  def quoted: Parser[String] = surround("\"", "\"")(".*?".r)
+  def quoted: Parser[String] = string("\"") *> thru("\"").map(_.dropRight(1))
 
   /** Unescaped or escaped string literals, like "An \n important \"Quotation\"" or "bar". */
   def escapedQuoted: Parser[String] =
@@ -216,4 +215,11 @@ case class ParseError(stack: List[(Location,String)] = List(),
   def latest: Option[(Location,String)] = stack.lastOption
 
   def latestLoc: Option[Location] = latest.map(_._1)
+
+  def furthest: ParseError =
+    (copy(otherFailures = List()) :: otherFailures)
+      .maxBy (_.latest.map(_._1.offset))
+
+  def addFailure(e: ParseError) =
+    copy(otherFailures = e :: otherFailures)
 }

@@ -9,6 +9,8 @@ object JSON {
   case class JArray(get: IndexedSeq[JSON]) extends JSON
   case class JObject(get: Map[String, JSON]) extends JSON
 
+  // dependency injection with typeclass
+  // a parser typeclass implementation P is injected and used
   def jsonParser[Parser[+_]](P: Parsers[Parser]): Parser[JSON] = {
     // we'll hide the string implicit conversion and promote strings to tokens instead
     // this is a bit nicer than having to write token everywhere
@@ -62,16 +64,16 @@ object JSONExample extends App {
 ]
 """
 
-  //val P = fpinscala.parsing.Parsers
-  //import fpinscala.parsing.ReferenceTypes.Parser
+  val P = fpinscala.parsing.MyParser
+  import fpinscala.parsing.MyParserTypes.Parser
 
-  //def printResult[E](e: Either[E,JSON]) =
-    //e.fold(println, println)
+  def printResult[E](e: Either[E,JSON]) =
+    e.fold(println, println)
 
-  //val json: Parser[JSON] = JSON.jsonParser(P)
-  //printResult { P.run(json)(jsonTxt) }
-  //println("--")
-  //printResult { P.run(json)(malformedJson1) }
-  //println("--")
-  //printResult { P.run(json)(malformedJson2) }
+  val json: Parser[JSON] = JSON.jsonParser(P)
+  printResult { P.run(json)(jsonTxt) }
+  println("--")
+  printResult { P.run(json)(malformedJson1) }
+  println("--")
+  printResult { P.run(json)(malformedJson2) }
 }
