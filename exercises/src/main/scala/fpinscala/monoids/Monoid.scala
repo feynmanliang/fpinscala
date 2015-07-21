@@ -61,7 +61,12 @@ object Monoid {
     (m.op(m.zero, a) == a) && (m.op(a, m.zero) == a)
   }
 
-  def trimMonoid(s: String): Monoid[String] = sys.error("todo")
+  def trimMonoid: Monoid[String] = new Monoid[String] {
+    def op(a1: String, a2: String): String =
+      a1.reverse.takeWhile(_ != ' ').reverse + ' ' + a2.dropWhile(_ == ' ')
+
+    val zero = ""
+  }
 
   def concatenate[A](as: List[A], m: Monoid[A]): A =
     sys.error("todo")
