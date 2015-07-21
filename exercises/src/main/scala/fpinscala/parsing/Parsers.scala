@@ -7,12 +7,14 @@ import fpinscala.testing.Prop._
 
 trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trait
   def run[A](p: Parser[A])(input: String): Either[ParseError,A]
+  implicit def operators[A](p: Parser[A]) = ParserOps[A](p) // implicit conversion to enable infix ParserOps[A]
+  implicit def asStringParser[A](a: A)(implicit f: A => Parser[String]): ParserOps[String] = ParserOps(f(a))
+  implicit def regex(r: Regex): Parser[String]
 
   /*
    Primitive Combinators
    */
   implicit def string(s: String): Parser[String] // implicit conversion from string to Parser[String]
-  implicit def asStringParser[A](a: A)(implicit f: A => Parser[String]): ParserOps[String] = ParserOps(f(a))
 
   def slice[A](p: Parser[A]): Parser[String]
 
@@ -25,6 +27,8 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
 
   // Left biased: evaluates s1 before s2 (no longer associative!)
   def or[A](s1: Parser[A], s2: => Parser[A]): Parser[A]
+
+  def flatMap[A,B](p: Parser[A])(f: A => Parser[B]): Parser[B]
 
   /*
    Derived Combinators
@@ -47,7 +51,6 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
   // parses a single character
   def char(c: Char): Parser[Char] = string(c.toString) map (_.charAt(0))
 
-  implicit def operators[A](p: Parser[A]) = ParserOps[A](p) // implicit conversion to enable infix ParserOps[A]
   case class ParserOps[A](p: Parser[A]) {
     def |[B>:A](p2: Parser[B]): Parser[B] = self.or(p,p2)
     def or[B>:A](p2: => Parser[B]): Parser[B] = self.or(p,p2)
@@ -55,6 +58,7 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
     def map[B](f: A => B): Parser[B] = self.map(p)(f)
     def **[B](p2: Parser[B]): Parser[(A,B)] = self.product(p, p2)
     def product[B](p2: Parser[B]): Parser[(A,B)] = self.product(p, p2)
+    def flatMap[B](f: A => Parser[B]): Parser[B] = self.flatMap(p)(f)
   }
 
   object Laws {
@@ -75,6 +79,19 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
     // (parser[A] ** parser[B]) map(f) == parser[A] map(f)
     // (parser[A] ** parser[B]) map(g) == parser[B] map(g)
   }
+
+
+  // Exercise 8: Context-sensitive parser
+  // Accept "<n:Int>aaa...(n-times)..."
+  //def ex8: Parser[List[String]] = "[0-9]".r flatMap { n =>
+  //  listOfN(n.toInt, string("a")) map (n :: _)
+  //}
+  def ex8: Parser[List[String]] = for {
+    digit <- "[0-9]".r // rewritten to flatMap in for comprehension
+    val n = digit.toInt
+    _ <- listOfN(n.toInt, char("a"))
+  } yield n
+
 }
 
 case class Location(input: String, offset: Int = 0) {
