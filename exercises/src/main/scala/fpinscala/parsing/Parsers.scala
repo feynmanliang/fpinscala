@@ -7,21 +7,25 @@ import fpinscala.testing.Prop._
 
 trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trait
   def run[A](p: Parser[A])(input: String): Either[ParseError,A]
-  def or[A](s1: Parser[A], s2: Parser[A]): Parser[A]
+
   implicit def string(s: String): Parser[String] // implicit conversion from string to Parser[String]
   implicit def operators[A](p: Parser[A]) = ParserOps[A](p) // implicit conversion to enable infix ParserOps[A]
   implicit def asStringParser[A](a: A)(implicit f: A => Parser[String]): ParserOps[String] = ParserOps(f(a))
 
-  def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]]
-
-  def many[A](p: Parser[A]): Parser[List[A]]
-  def many1[A](p: Parser[A]): Parser[List[A]] =
-    map2(p, many(p))(_ :: _)
+  def or[A](s1: Parser[A], s2: Parser[A]): Parser[A]
   def map[A,B](p: Parser[A])(f: A => B): Parser[B]
   def map2[A,B,C](p1: Parser[A], p2: Parser[B])(f: (A,B) => C): Parser[C] =
     p1 product(p2) map(f.tupled)
   def product[A,B](p1: Parser[A], p2: Parser[B]): Parser[(A,B)]
   def slice[A](p: Parser[A]): Parser[String]
+
+  def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] =
+    if (n == 0) succeed(List[A]())
+    else map2(p, listOfN(n-1,p))(_ :: _)
+  def many[A](p: Parser[A]): Parser[List[A]] =
+    succeed(List[A]()) | map2(p, many(p))(_ :: _)
+  def many1[A](p: Parser[A]): Parser[List[A]] =
+    map2(p, many(p))(_ :: _)
 
   // parses a single character
   def char(c: Char): Parser[Char] = string(c.toString) map (_.charAt(0))
@@ -51,6 +55,11 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
     //  forAll(as.map2(ss)((a,s) => (a,s))) { (a,s) =>
     //      self.run(succeed(a))(s) == Right(a)
     //  }
+
+    // Product should respect UMP for products i.e. 
+    // given f: (A,B) => A, g: (A,B) => B, we should have
+    // (parser[A] ** parser[B]) map(f) == parser[A] map(f)
+    // (parser[A] ** parser[B]) map(g) == parser[B] map(g)
   }
 }
 
