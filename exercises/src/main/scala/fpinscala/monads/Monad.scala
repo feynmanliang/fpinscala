@@ -70,28 +70,48 @@ object Monad {
 
   def parserMonad[P[+_]](p: Parsers[P]): Monad[P] = ???
 
-  val optionMonad: Monad[Option] = ???
+  val optionMonad: Monad[Option] = new Monad[Option] {
+    def unit[A](a: => A): Option[A] = Some(a)
+    override def flatMap[A,B](oa: Option[A])(f: A => Option[B]): Option[B] =
+      oa flatMap f
+  }
 
-  val streamMonad: Monad[Stream] = ???
+  val streamMonad: Monad[Stream] = new Monad[Stream] {
+    def unit[A](a: => A): Stream[A] = Stream(a)
+    override def flatMap[A,B](sa: Stream[A])(f: A => Stream[B]): Stream[B] =
+      sa flatMap f
+  }
 
-  val listMonad: Monad[List] = ???
+  val listMonad: Monad[List] = new Monad[List] {
+    def unit[A](a: => A): List[A] = List(a)
+    override def flatMap[A,B](la: List[A])(f: A => List[B]): List[B] =
+      la flatMap f
+  }
 
-  def stateMonad[S] = ???
+  def stateMonad[S] = new Monad[({type lambda[x] = State[S,x]})#lambda] {
+    def unit[A](a: => A): State[S,A] = State(s => (a, s))
+    override def flatMap[A,B](st: State[S,A])(f: A => State[S,B]): State[S,B] =
+      st flatMap f
+  }
 
-  val idMonad: Monad[Id] = ???
+  val idMonad: Monad[Id] = new Monad[Id] {
+    def unit[A](a: => A) = Id(a)
+    override def flatMap[A,B](ida: Id[A])(f: A => Id[B]): Id[B] = ida flatMap f
+  }
 
-  def readerMonad[R] = ???
+  def readerMonad[R] = new Monad[({type f[x] = Reader[R,x]})#f] {
+    def unit[A](a: => A): Reader[R,A] = Reader(_ => a)
+    override def flatMap[A,B](st: Reader[R,A])(f: A => Reader[R,B]): Reader[R,B] =
+    Reader(r => f(st.run(r)).run(r))
+  }
 }
 
 case class Id[A](value: A) {
-  def map[B](f: A => B): Id[B] = ???
-  def flatMap[B](f: A => Id[B]): Id[B] = ???
+  def map[B](f: A => B): Id[B] = Id(f(value))
+  def flatMap[B](f: A => Id[B]): Id[B] = f(value)
 }
 
 object Reader {
-  def readerMonad[R] = new Monad[({type f[x] = Reader[R,x]})#f] {
-    def unit[A](a: => A): Reader[R,A] = ???
-    override def flatMap[A,B](st: Reader[R,A])(f: A => Reader[R,B]): Reader[R,B] = ???
-  }
+  def ask[R]: Reader[R, R] = Reader(r => r)
 }
 
