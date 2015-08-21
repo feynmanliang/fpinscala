@@ -88,7 +88,11 @@ object Monad {
   }
 
   def composeM[F[_],N[_]](implicit F: Monad[F], N: Monad[N], T: Traverse[N]):
-    Monad[({type f[x] = F[N[x]]})#f] = ???
+      Monad[({type f[x] = F[N[x]]})#f] = new Monad[({type f[x] = F[N[x]]})#f] {
+    def unit[A](a: => A): F[N[A]] = F.unit(N.unit(a))
+    override def flatMap[A,B](ma: F[N[A]])(f: A => F[N[B]]): F[N[B]] =
+      F.flatMap(ma)(na => F.map(T.traverse(na)(f))(N.join))
+  }
 }
 
 sealed trait Validation[+E, +A]
@@ -181,7 +185,13 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
     traverse[({type f[x] = (G[x], H[x])})#f, A, B](fa)(a => (f(a), g(a)))(G product H)
   }
 
-  def compose[G[_]](implicit G: Traverse[G]): Traverse[({type f[x] = F[G[x]]})#f] = ???
+  def compose[G[_]](implicit G: Traverse[G]): Traverse[({type f[x] = F[G[x]]})#f] = {
+    val self = this
+    new Traverse[({type f[x] = F[G[x]]})#f] {
+      override def traverse[M[_]:Applicative,A,B](fa: F[G[A]])(f: A => M[B]): M[F[G[B]]] =
+        self.traverse(fa)((ga : G[A]) => G.traverse(ga)(f))
+    }
+  }
 }
 
 object Traverse {
