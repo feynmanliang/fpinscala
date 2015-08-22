@@ -98,7 +98,10 @@ sealed abstract class STArray[S,A](implicit manifest: Manifest[A]) {
   // Turn the array into an immutable list
   def freeze: ST[S,List[A]] = ST(value.toList)
 
-  def fill(xs: Map[Int,A]): ST[S,Unit] = ???
+  def fill(xs: Map[Int,A]): ST[S,Unit] =
+    xs.foldRight(ST[S,Unit](())) {
+      case ((k, v), st) => st flatMap (_ => write(k, v))
+    }
 
   def swap(i: Int, j: Int): ST[S,Unit] = for {
     x <- read(i)
@@ -124,9 +127,29 @@ object STArray {
 object Immutable {
   def noop[S] = ST[S,Unit](())
 
-  def partition[S](a: STArray[S,Int], l: Int, r: Int, pivot: Int): ST[S,Int] = ???
+  def partition[S](a: STArray[S,Int], l: Int, r: Int, pivot: Int): ST[S,Int] = for {
+    vp <- a.read(pivot)
+    _ <- a.swap(pivot, r)
+    j <- STRef(l)
+    // move all vi < vp to left side of array
+    _ <- (l until r).foldLeft(noop[S])((s, i) => for {
+        _ <- s
+        vi <- a.read(i)
+        _ <- if (vi < vp) ( for { // swaps i,j and increments j+=1
+            vj <- j.read
+            _ <- a.swap(i, vj)
+            _ <- j.write(vj + 1)
+          } yield ()) else noop[S]
+      } yield ())
+    x <- j.read // j references index s.t. all left elements < vp
+    _ <- a.swap(x, r) // swaps partition element to correct place
+  } yield x // returns index into a of partition element
 
-  def qs[S](a: STArray[S,Int], l: Int, r: Int): ST[S, Unit] = ???
+  def qs[S](a: STArray[S,Int], l: Int, r: Int): ST[S, Unit] = if (l < r) for {
+    pi <- partition(a, l, r, l + (r - l) / 2)
+    _ <- qs(a, l, pi - 1)
+    _ <- qs(a, pi + 1, r)
+  } yield () else noop[S]
 
   def quicksort(xs: List[Int]): List[Int] =
     if (xs.isEmpty) xs else ST.runST(new RunnableST[List[Int]] {
@@ -136,8 +159,27 @@ object Immutable {
         _      <- qs(arr, 0, size - 1)
         sorted <- arr.freeze
       } yield sorted
-  })
+    })
 }
 
 import scala.collection.mutable.HashMap
 
+sealed trait STMap[S,K,V] {
+  protected def table: HashMap[K,V]
+
+  def size: ST[S,Int] = ST(table.size)
+  def apply(k: K): ST[S,V] = ST(table(k))
+  def get(k: K): ST[S, Option[V]] = ST(table.get(k))
+  def +=(kv: (K,V)): ST[S, Unit] = ST(table += kv)
+  def -=(k: K) = ST(table -= k)
+}
+
+object STMap {
+  def empty[S,K,V]: ST[S, STMap[S,K,V]] = ST(new STMap[S,K,V] {
+    val table = HashMap.empty[K,V]
+  })
+
+  def fromMap[S,K,V](m: Map[K,V]): ST[S, STMap[S,K,V]] = ST(new STMap[S,K,V] {
+    val table = (HashMap.newBuilder[K,V] ++= m).result
+  })
+}
